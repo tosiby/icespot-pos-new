@@ -1,6 +1,8 @@
 import { cookies } from "next/headers"
 import { verify } from "jsonwebtoken"
-import { prisma } from "@/lib/prisma"
+import { prisma } from "../../../src/lib/prisma"
+import { getCurrentUser } from "../../../src/lib/auth"
+
 
 export async function getCurrentUser() {
   try {

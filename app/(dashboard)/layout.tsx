@@ -7,7 +7,7 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="min-h-screen flex">
-      <aside className="w-60 bg-gray-900 text-white p-4 space-y-4">
+      <aside className="w-60 bg-gray-900 text-white p-4">
         <h1 className="text-xl font-bold mb-6">ICE SPOT POS</h1>
 
         <nav className="space-y-2">

@@ -1,4 +1,6 @@
-import { prisma } from "@/lib/prisma"
+import { prisma } from "../../../src/lib/prisma"
+import { getCurrentUser } from "../../../src/lib/auth"
+
 import * as XLSX from "xlsx"
 
 export async function GET() {

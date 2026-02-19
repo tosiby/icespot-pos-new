@@ -1,5 +1,6 @@
-import { prisma } from "@/lib/prisma"
-import { NextResponse } from "next/server"
+import { prisma } from "../../../src/lib/prisma"
+import { getCurrentUser } from "../../../src/lib/auth"
+
 
 export async function GET() {
   const items = await prisma.item.findMany({
