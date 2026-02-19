@@ -1,4 +1,6 @@
-import { prisma } from "../../../lib/prisma"
+import { prisma } from "@/lib/prisma"
+import { getCurrentUser } from "@/lib/auth"
+
 import { NextResponse } from "next/server"
 
 import { startOfDay } from "date-fns"
