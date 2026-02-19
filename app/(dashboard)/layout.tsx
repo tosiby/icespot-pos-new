@@ -11,9 +11,9 @@ export default function DashboardLayout({
         <h1 className="text-xl font-bold mb-6">ICE SPOT POS</h1>
 
         <nav className="space-y-2">
-          <Link href="/dashboard" className="block hover:underline">POS</Link>
-          <Link href="/admin" className="block hover:underline">Admin</Link>
-          <Link href="/superadmin" className="block hover:underline">Super Admin</Link>
+          <Link href="/dashboard">POS</Link>
+          <Link href="/admin">Admin</Link>
+          <Link href="/superadmin">Super Admin</Link>
         </nav>
       </aside>
 

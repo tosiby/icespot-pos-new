@@ -9,7 +9,7 @@ export async function getCurrentUser() {
   try {
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!)
     return await prisma.user.findUnique({
-      where: { id: decoded.userId }
+      where: { id: decoded.userId },
     })
   } catch {
     return null
