@@ -7,14 +7,19 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="min-h-screen flex">
-      <aside className="w-60 bg-gray-900 text-white p-4 space-y-3">
+      <aside className="w-60 bg-gray-900 text-white p-4 space-y-4">
         <h1 className="text-xl font-bold mb-6">ICE SPOT POS</h1>
 
         <nav className="space-y-2">
-          <Link href="/dashboard" className="block hover:underline">POS</Link>
-          <Link href="/report" className="block hover:underline">Reports</Link>
-          <Link href="/admin" className="block hover:underline">Admin</Link>
-          <Link href="/superadmin" className="block hover:underline">Super Admin</Link>
+          <Link href="/dashboard" className="block hover:underline">
+            POS
+          </Link>
+          <Link href="/admin" className="block hover:underline">
+            Admin
+          </Link>
+          <Link href="/superadmin" className="block hover:underline">
+            Super Admin
+          </Link>
         </nav>
       </aside>
 
