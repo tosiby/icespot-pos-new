@@ -1,5 +1,6 @@
 "use client"
 import useSWR from "swr"
+import { getCurrentUser } from "../../../lib/auth"
 
 const fetcher = (url:string)=>fetch(url).then(r=>r.json())
 

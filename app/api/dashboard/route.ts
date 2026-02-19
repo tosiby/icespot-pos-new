@@ -1,5 +1,6 @@
+import { prisma } from "../../../lib/prisma"
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+
 import { startOfDay, startOfMonth } from "date-fns"
 
 export async function GET() {
