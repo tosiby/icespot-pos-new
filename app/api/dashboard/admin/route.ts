@@ -1,10 +1,10 @@
-import { prisma } from "@/lib/prisma"
-import { getCurrentUser } from "@/lib/auth"
+import { prisma } from "../../../lib/prisma"
+import { getCurrentUser } from "../../../lib/auth"
 
 import { NextResponse } from "next/server"
 
 import { startOfDay } from "date-fns"
-import { getCurrentUser } from "@/lib/auth"
+import { getCurrentUser } from "../../../lib/auth"
 
 export async function GET() {
   const user = await getCurrentUser()
