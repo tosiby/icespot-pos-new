@@ -8,10 +8,9 @@ export async function getCurrentUser() {
 
   try {
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!)
-    const user = await prisma.user.findUnique({
+    return await prisma.user.findUnique({
       where: { id: decoded.userId }
     })
-    return user
   } catch {
     return null
   }
