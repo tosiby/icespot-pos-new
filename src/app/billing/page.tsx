@@ -172,6 +172,25 @@ const router = useRouter();
     window.location.href = "/login";
   }
 
+  /* ─── Dashboard Navigation (with debug) ─────────────────────────────── */
+
+  async function goToDashboard() {
+    showToast("Checking auth…", "info");
+    try {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) {
+        showToast(`❌ Not authenticated (${res.status}) — redirecting to login`, "error");
+        setTimeout(() => { window.location.href = "/login"; }, 1500);
+        return;
+      }
+      const user = await res.json();
+      showToast(`✓ Auth OK · Role: ${user.role} · Navigating…`, "success");
+      setTimeout(() => { router.push("/dashboard"); }, 800);
+    } catch (err: any) {
+      showToast(`❌ Auth check failed: ${err?.message || "network error"}`, "error");
+    }
+  }
+
   /* ─── Cart ───────────────────────────────────────────────────────────── */
 
   function getQty(productId: string) {
@@ -674,7 +693,7 @@ const router = useRouter();
             )}
             <div className="today-total">Today ₹{todayTotal.toFixed(2)}</div><button
   className="nav-btn"
-  onClick={() => router.push("/dashboard")}
+  onClick={goToDashboard}
 >
   📊 Dashboard
 </button>
