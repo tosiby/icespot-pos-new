@@ -36,14 +36,18 @@ async function getUser(): Promise<any | null> {
 }
 
 // =====================================================
-// ⏱️ TIMEOUT WRAPPER (prevents hanging requests)
+// ⏱️ TIMEOUT WRAPPER (strict-safe)
 // =====================================================
-async function withTimeout<T>(promise: Promise<T>, ms = 8000): Promise<T> {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("Supabase timeout")), ms)
-  );
-
-  return Promise.race([promise, timeout]);
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms = 8000
+): Promise<T> {
+  return await Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("Supabase timeout")), ms)
+    ),
+  ]);
 }
 
 // =====================================================
@@ -60,29 +64,27 @@ export async function GET() {
     const supabase = getSupabase();
 
     // =====================================================
-    // 📦 Fetch products (with timeout protection)
+    // 📦 Fetch products (clean + typed)
     // =====================================================
     let data: any[] | null = null;
     let error: any = null;
 
     try {
-const res = await withTimeout(
-  Promise.resolve(
-    supabase
-      .from("products")
-      .select("id,name,stock_qty,reorder_level")
-      .order("stock_qty", { ascending: true })
-      .limit(200)
-  ),
-  5000
-);
+      const res = await withTimeout(
+        (async () => {
+          return await supabase
+            .from("products")
+            .select("id,name,stock_qty,reorder_level")
+            .order("stock_qty", { ascending: true })
+            .limit(200);
+        })(),
+        5000
+      );
 
       data = res.data;
       error = res.error;
     } catch (e) {
       console.error("LOW STOCK TIMEOUT/NETWORK:", e);
-
-      // ✅ graceful fallback — NEVER break dashboard
       return NextResponse.json({ items: [] });
     }
 
@@ -91,8 +93,6 @@ const res = await withTimeout(
     // =====================================================
     if (error) {
       console.error("LOW STOCK SUPABASE ERROR:", error);
-
-      // ✅ graceful fallback for dashboard stability
       return NextResponse.json({ items: [] });
     }
 
@@ -117,8 +117,6 @@ const res = await withTimeout(
     return NextResponse.json({ items });
   } catch (err: any) {
     console.error("LOW STOCK FATAL:", err);
-
-    // 🔥 FINAL SAFETY NET — dashboard must never crash
     return NextResponse.json({ items: [] });
   }
 }
