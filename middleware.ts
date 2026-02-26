@@ -1,27 +1,39 @@
 import { NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import type { NextRequest } from "next/server";
+import jwt from "jsonwebtoken";
 
-export function middleware(req: NextRequest) {
-  const token = req.cookies.get("icepos_token")?.value;
+export function middleware(request: NextRequest) {
+  const token = request.cookies.get("icepos_token")?.value;
+  const pathname = request.nextUrl.pathname;
 
-  // allow login route always
-  if (req.nextUrl.pathname.startsWith("/login") ||
-      req.nextUrl.pathname.startsWith("/api/login")) {
+  // allow login page always
+  if (pathname.startsWith("/login")) {
     return NextResponse.next();
   }
 
   // protect dashboard
-  if (req.nextUrl.pathname.startsWith("/dashboard")) {
+  if (pathname.startsWith("/dashboard")) {
     if (!token) {
-      return NextResponse.redirect(new URL("/login", req.url));
+      console.log("[MIDDLEWARE] No token found → redirect to login");
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      // ❌ JWT_SECRET not set in production env — this is the #1 cause of the bug
+      console.error("[MIDDLEWARE] JWT_SECRET is not set! Check environment variables in your deployment.");
+      return NextResponse.redirect(new URL("/login", request.url));
     }
 
     try {
-      jwt.verify(token, process.env.JWT_SECRET!);
+      jwt.verify(token, secret);
       return NextResponse.next();
-    } catch {
-      return NextResponse.redirect(new URL("/login", req.url));
+    } catch (err) {
+      console.log("[MIDDLEWARE] Token verification failed:", err);
+      // Clear bad cookie and redirect
+      const response = NextResponse.redirect(new URL("/login", request.url));
+      response.cookies.delete("icepos_token");
+      return response;
     }
   }
 
@@ -29,5 +41,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/api/:path*"],
+  matcher: ["/dashboard/:path*"],
 };
