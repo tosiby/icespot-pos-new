@@ -69,20 +69,21 @@ export async function GET() {
     let data: any[] | null = null;
     let error: any = null;
 
-    try {
-      const res = await withTimeout(
-        (async () => {
-          return await supabase
-            .from("products")
-            .select("id,name,stock_qty,reorder_level")
-            .order("stock_qty", { ascending: true })
-            .limit(200);
-        })(),
-        5000
-      );
+   
+      try {
+  const res = await withTimeout(
+    (async () => {
+      return await supabase
+        .from("products")
+        .select("id,name,stock_qty,reorder_level")
+        .order("stock_qty", { ascending: true })
+        .limit(200);
+    })(),
+    5000
+  );
 
-      data = res.data;
-      error = res.error;
+  data = res.data;
+  error = res.error;
     } catch (e) {
       console.error("LOW STOCK TIMEOUT/NETWORK:", e);
       return NextResponse.json({ items: [] });
