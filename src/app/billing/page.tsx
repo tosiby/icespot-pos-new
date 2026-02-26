@@ -1,7 +1,9 @@
+export const dynamic = "force-dynamic";
+
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-
+import { useRouter } from "next/navigation";
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
 type Product = {
@@ -25,6 +27,7 @@ type CartItem = {
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 
 export default function BillingPage() {
+const router = useRouter();
   const [shiftOpen, setShiftOpen] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -671,8 +674,12 @@ export default function BillingPage() {
             {me?.name && (
               <div className="topbar-staff">👤 <span style={{ color: "var(--text)" }}>{me.name}</span></div>
             )}
-            <div className="today-total">Today ₹{todayTotal.toFixed(2)}</div>
-            <a href="/dashboard" className="nav-btn">📊 Dashboard</a>
+            <div className="today-total">Today ₹{todayTotal.toFixed(2)}</div><button
+  className="nav-btn"
+  onClick={() => router.push("/dashboard")}
+>
+  📊 Dashboard
+</button>
             <a href="/shift-history" className="nav-btn">📁 History</a>
             <button className="nav-btn" onClick={logout}>🚪 Logout</button>
           </div>
