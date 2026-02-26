@@ -72,15 +72,15 @@ export async function GET() {
    
       try {
   const res = await withTimeout(
-    (async () => {
-      return await supabase
-        .from("products")
-        .select("id,name,stock_qty,reorder_level")
-        .order("stock_qty", { ascending: true })
-        .limit(200);
-    })(),
-    5000
-  );
+  Promise.resolve(
+    supabase
+      .from("products")
+      .select("id,name,stock_qty,reorder_level")
+      .order("stock_qty", { ascending: true })
+      .limit(200)
+  ),
+  5000
+);
 
   data = res.data;
   error = res.error;
