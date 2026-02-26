@@ -66,14 +66,14 @@ export async function GET() {
     let error: any = null;
 
     try {
-     const res = await withTimeout(
-  (async () =>
-    supabase
+ const res = await withTimeout(
+  (async () => {
+    return await supabase
       .from("products")
       .select("id,name,stock_qty,reorder_level")
       .order("stock_qty", { ascending: true })
-      .limit(200)
-  )(),
+      .limit(200);
+  })(),
   5000
 );
 
