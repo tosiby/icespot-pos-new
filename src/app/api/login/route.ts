@@ -48,13 +48,14 @@ export async function POST(req: Request) {
     );
 
     // 🍪 set secure cookie
-   const response = NextResponse.json({ success: true });
+ const response = NextResponse.json({ success: true });
 
 response.cookies.set("icepos_token", token, {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production", // true in production
+  secure: process.env.NODE_ENV === "production",
   sameSite: "lax",
-  path: "/", // ⭐ CRITICAL
+  path: "/",
+  maxAge: 60 * 60 * 8, // ⭐ ADD THIS (8 hours)
 });
 
 return response;
