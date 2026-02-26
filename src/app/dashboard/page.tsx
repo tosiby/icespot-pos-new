@@ -1,7 +1,7 @@
 "use client";
-export const dynamic = "force-dynamic";
-import { useEffect, useState, useCallback } from "react";
 
+import { useEffect, useState, useCallback } from "react";
+export const dynamic = "force-dynamic";
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 
 type ZData = { totalSales?: number; cash?: number; upi?: number; card?: number; billCount?: number; topItems?: { name: string; qty: number }[] };
