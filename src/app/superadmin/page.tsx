@@ -43,6 +43,9 @@ export default function SuperAdminPage() {
   const [creating, setCreating] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  // Products tab state
+
+
   const showToast = useCallback((msg: string, type: "success" | "error" | "info" = "info") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
