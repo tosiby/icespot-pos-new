@@ -1,6 +1,6 @@
 "use client";
 export const dynamic = "force-dynamic";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 /* ══════════════════════════════════════════════════════════════════
    TYPES
@@ -22,7 +22,7 @@ type Stats = {
   topItems: { name: string; qty: number }[];
 };
 
-type Tab = "dashboard" | "users";
+type Tab = "dashboard" | "users" | "stock" | "products";
 
 /* ══════════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -34,6 +34,7 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" | "info" } | null>(null);
 
+
   // modals
   const [showCreate, setShowCreate] = useState(false);
   const [showReset, setShowReset] = useState<User | null>(null);
@@ -41,6 +42,14 @@ export default function SuperAdminPage() {
   const [newUser, setNewUser] = useState({ email: "", password: "", role: "STAFF" });
   const [creating, setCreating] = useState(false);
   const [resetting, setResetting] = useState(false);
+
+  // Products tab state
+  const [products, setProducts] = useState<any[]>([]);
+  const [prodSearch, setProdSearch] = useState("");
+  const [prodCategory, setProdCategory] = useState("ALL");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editVals, setEditVals] = useState<{ name: string; selling_price: string; reorder_level: string }>({ name: "", selling_price: "", reorder_level: "" });
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string, type: "success" | "error" | "info" = "info") => {
     setToast({ msg, type });
@@ -52,6 +61,15 @@ export default function SuperAdminPage() {
     if (res.ok) setStats(await res.json());
   }, []);
 
+  const loadProducts = useCallback(async () => {
+    const res = await fetch("/api/reports/stock-summary");
+    if (res.ok) {
+      const d = await res.json();
+      // stock-summary now returns selling_price
+      setProducts(d.products ?? []);
+    }
+  }, []);
+
   const loadUsers = useCallback(async () => {
     const res = await fetch("/api/superadmin/users");
     if (res.ok) setUsers(await res.json());
@@ -61,7 +79,7 @@ export default function SuperAdminPage() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([loadStats(), loadUsers()]);
+      await Promise.all([loadStats(), loadUsers(), loadProducts()]);
       setLoading(false);
     })();
   }, [loadStats, loadUsers]);
@@ -101,6 +119,27 @@ export default function SuperAdminPage() {
     showToast(`✓ Password reset for ${showReset.email}`, "success");
     setShowReset(null);
     setNewPwd("");
+  }
+
+  /* ── Save Product Edit ───────────────────────────────────────── */
+  async function saveProduct(id: string) {
+    setSavingId(id);
+    const res = await fetch("/api/products/update", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id,
+        name: editVals.name,
+        selling_price: parseFloat(editVals.selling_price),
+        reorder_level: parseInt(editVals.reorder_level) || 0,
+      }),
+    });
+    const data = await res.json();
+    setSavingId(null);
+    if (!res.ok) { showToast(data.error || "Save failed", "error"); return; }
+    showToast("✓ Product updated", "success");
+    setEditingId(null);
+    await loadProducts();
   }
 
   /* ── Toggle Active ───────────────────────────────────────────── */
@@ -152,6 +191,8 @@ export default function SuperAdminPage() {
           {([
             { id: "dashboard", icon: "📊", label: "Dashboard" },
             { id: "users",     icon: "👥", label: "Users & Roles" },
+            { id: "stock",     icon: "📦", label: "Stock Upload" },
+            { id: "products",  icon: "🏷️", label: "Products" },
           ] as { id: Tab; icon: string; label: string }[]).map(item => (
             <button
               key={item.id}
@@ -165,7 +206,17 @@ export default function SuperAdminPage() {
         </nav>
 
         <div style={S.sideFooter}>
-          <a href="/dashboard" style={S.backLink}>← Back to Dashboard</a>
+          <a href="/dashboard" style={S.backLink}>📊 Dashboard</a>
+          <a href="/billing" style={{ ...S.backLink, display: "block", marginTop: 8 }}>⚡ Billing</a>
+          <button
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" });
+              window.location.href = "/login";
+            }}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: 12, display: "block", fontSize: 11, color: "#f87171", fontFamily: "Outfit, sans-serif" }}
+          >
+            🚪 Logout
+          </button>
         </div>
       </aside>
 
@@ -331,6 +382,169 @@ export default function SuperAdminPage() {
             </div>
           </div>
         )}
+
+        {/* ━━━━━━━━━━━━━━━━━ STOCK UPLOAD TAB ━━━━━━━━━━━━━━━━━ */}
+        {tab === "stock" && (
+          <StockUploadTab />
+        )}
+
+        {/* ━━━━━━━━━━━━━━━━━ PRODUCTS TAB ━━━━━━━━━━━━━━━━━━━━ */}
+        {tab === "products" && (
+          <div style={S.content}>
+            <div style={S.pageHeader}>
+              <div>
+                <h1 style={S.pageTitle}>🏷️ Products Management</h1>
+                <p style={S.pageSub}>
+                  {products.filter(p => {
+                    const q = prodSearch.toLowerCase();
+                    const matchesSearch = !q || p.name?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q) || p.category_name?.toLowerCase().includes(q);
+                    const matchesCat = prodCategory === "ALL" || p.category_name === prodCategory;
+                    return matchesSearch && matchesCat;
+                  }).length} of {products.length} products · Click any row to edit
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" as const }}>
+                <div style={{ position: "relative" as const }}>
+                  <span style={{ position: "absolute" as const, left: 10, top: "50%", transform: "translateY(-50%)", color: "#475569", fontSize: 13, pointerEvents: "none" as const }}>🔍</span>
+                  <input
+                    value={prodSearch}
+                    onChange={e => setProdSearch(e.target.value)}
+                    placeholder="Search name, SKU or category…"
+                    style={{ padding: "8px 14px 8px 30px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 9, color: "#e2e8f0", fontFamily: "Outfit,sans-serif", fontSize: 13, outline: "none", width: 260 }}
+                  />
+                </div>
+                <select
+                  value={prodCategory}
+                  onChange={e => setProdCategory(e.target.value)}
+                  style={{ padding: "8px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 9, color: "#e2e8f0", fontFamily: "Outfit,sans-serif", fontSize: 13, outline: "none", cursor: "pointer" }}
+                >
+                  <option value="ALL">All Categories</option>
+                  {Array.from(new Set(products.map(p => p.category_name))).sort().map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                {(prodSearch || prodCategory !== "ALL") && (
+                  <button
+                    onClick={() => { setProdSearch(""); setProdCategory("ALL"); }}
+                    style={{ padding: "8px 12px", borderRadius: 9, border: "1px solid rgba(248,113,113,0.3)", background: "rgba(248,113,113,0.08)", color: "#f87171", fontFamily: "Outfit,sans-serif", fontSize: 12, cursor: "pointer" }}
+                  >
+                    ✕ Clear
+                  </button>
+                )}
+                <button onClick={loadProducts} style={{ padding: "8px 14px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#94a3b8", fontFamily: "Outfit,sans-serif", fontSize: 12, cursor: "pointer" }}>
+                  ↻ Refresh
+                </button>
+              </div>
+            </div>
+
+            <div style={S.table}>
+              {/* header */}
+              <div style={{ ...S.tableHead, gridTemplateColumns: "2fr 90px 1fr 90px 80px 80px 120px" } as React.CSSProperties}>
+                <div>Product Name</div>
+                <div>SKU</div>
+                <div>Category</div>
+                <div>Price (₹)</div>
+                <div>Stock</div>
+                <div>Reorder</div>
+                <div style={{ textAlign: "right" as const }}>Actions</div>
+              </div>
+
+              {products
+                .filter(p => {
+                  const q = prodSearch.toLowerCase();
+                  const matchesSearch = !q ||
+                    p.name?.toLowerCase().includes(q) ||
+                    p.sku?.toLowerCase().includes(q) ||
+                    p.category_name?.toLowerCase().includes(q);
+                  const matchesCat = prodCategory === "ALL" || p.category_name === prodCategory;
+                  return matchesSearch && matchesCat;
+                })
+                .map(p => {
+                  const isEditing = editingId === p.id;
+                  const stockColor = p.current_stock <= 0 ? "#f87171" : p.reorder_level > 0 && p.current_stock <= p.reorder_level ? "#fbbf24" : "#34d399";
+                  return (
+                    <div key={p.id} style={{
+                      display: "grid", gridTemplateColumns: "2fr 90px 1fr 90px 80px 80px 120px",
+                      gap: 8, padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                      alignItems: "center",
+                      background: isEditing ? "rgba(0,212,255,0.04)" : "transparent",
+                      borderLeft: isEditing ? "2px solid rgba(0,212,255,0.4)" : "2px solid transparent",
+                    }}>
+                      {/* Name */}
+                      <div>
+                        {isEditing
+                          ? <input value={editVals.name} onChange={e => setEditVals(v => ({ ...v, name: e.target.value }))}
+                              style={{ width: "100%", padding: "6px 10px", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.3)", borderRadius: 7, color: "#e2e8f0", fontFamily: "Outfit,sans-serif", fontSize: 13, outline: "none" }} />
+                          : <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{p.name}</div>
+                        }
+                      </div>
+
+                      {/* SKU */}
+                      <div style={{ fontFamily: "monospace", fontSize: 10, color: "#64748b" }}>{p.sku}</div>
+
+                      {/* Category */}
+                      <div style={{ fontSize: 11, color: "#64748b", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 4, padding: "2px 6px", display: "inline-block" }}>
+                        {p.category_name}
+                      </div>
+
+                      {/* Price */}
+                      <div>
+                        {isEditing
+                          ? <input type="number" value={editVals.selling_price} onChange={e => setEditVals(v => ({ ...v, selling_price: e.target.value }))}
+                              style={{ width: "100%", padding: "6px 10px", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.3)", borderRadius: 7, color: "#00d4ff", fontFamily: "DM Mono,monospace", fontSize: 13, outline: "none" }} />
+                          : <div style={{ fontFamily: "DM Mono,monospace", fontSize: 13, color: "#00d4ff", fontWeight: 600 }}>₹{Number(p.selling_price ?? 0).toFixed(2)}</div>
+                        }
+                      </div>
+
+                      {/* Stock */}
+                      <div style={{ fontFamily: "DM Mono,monospace", fontSize: 13, fontWeight: 700, color: stockColor }}>{p.current_stock}</div>
+
+                      {/* Reorder */}
+                      <div>
+                        {isEditing
+                          ? <input type="number" value={editVals.reorder_level} onChange={e => setEditVals(v => ({ ...v, reorder_level: e.target.value }))}
+                              style={{ width: "100%", padding: "6px 10px", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.3)", borderRadius: 7, color: "#e2e8f0", fontFamily: "DM Mono,monospace", fontSize: 13, outline: "none" }} />
+                          : <div style={{ fontFamily: "DM Mono,monospace", fontSize: 12, color: "#64748b" }}>{p.reorder_level || "—"}</div>
+                        }
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() => saveProduct(p.id)}
+                              disabled={savingId === p.id}
+                              style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: "linear-gradient(135deg,#059669,#34d399)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", opacity: savingId === p.id ? 0.6 : 1 }}
+                            >
+                              {savingId === p.id ? "…" : "✓ Save"}
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              style={{ padding: "5px 10px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.1)", background: "none", color: "#64748b", fontSize: 11, cursor: "pointer" }}
+                            >
+                              ✕
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingId(p.id);
+                              setEditVals({ name: p.name, selling_price: String(p.selling_price ?? 0), reorder_level: String(p.reorder_level || 0) });
+                            }}
+                            style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(0,212,255,0.3)", background: "rgba(0,212,255,0.08)", color: "#00d4ff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+                          >
+                            ✏️ Edit
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
       </main>
 
       {/* ── CREATE USER MODAL ─────────────────────────────────── */}
@@ -424,6 +638,186 @@ export default function SuperAdminPage() {
       {/* ── TOAST ─────────────────────────────────────────────── */}
       {toast && (
         <div style={{ ...S.toast, ...(toast.type === "success" ? S.toastSuccess : toast.type === "error" ? S.toastError : S.toastInfo) }}>
+          {toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ"} {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   STOCK UPLOAD COMPONENT (embedded in superadmin)
+══════════════════════════════════════════════════════════════════ */
+function StockUploadTab() {
+  const [file, setFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" | "info" } | null>(null);
+
+  // Products tab state
+  const [products, setProducts] = useState<any[]>([]);
+  const [prodSearch, setProdSearch] = useState("");
+  const [prodCategory, setProdCategory] = useState("ALL");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editVals, setEditVals] = useState<{ name: string; selling_price: string; reorder_level: string }>({ name: "", selling_price: "", reorder_level: "" });
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function showToast(msg: string, type: "success" | "error" | "info" = "info") {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  }
+
+  function handleFile(f: File | null) {
+    if (!f) return;
+    if (!f.name.match(/\.(xlsx|xls)$/i)) { showToast("Only .xlsx or .xls files supported", "error"); return; }
+    setFile(f); setResult(null);
+  }
+
+  async function upload() {
+    if (!file) { showToast("Select a file first", "error"); return; }
+    setUploading(true); setResult(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/purchase/upload", { method: "POST", body: form });
+      const json = await res.json();
+      setResult(json);
+      if (json.processed > 0) showToast(`✓ ${json.processed} products updated`, "success");
+      else showToast("No products were updated", "error");
+    } catch { showToast("Upload failed — network error", "error"); }
+    finally { setUploading(false); }
+  }
+
+  function downloadTemplate() {
+    const csv = "SKU,Name,Quantity\nICE001,Vanilla Scoop,50\nICE002,Chocolate Scoop,30\n";
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "stock_template.csv"; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div style={{ padding: "32px 32px", maxWidth: 680 }}>
+      <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 4 }}>📦 Stock Upload via Excel</h1>
+      <p style={{ fontSize: 12, color: "#64748b", marginBottom: 28 }}>Bulk update product quantities by uploading an Excel file</p>
+
+      {/* info chips */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+        {[
+          { icon: "🔎", text: "Matches by SKU → Name" },
+          { icon: "🔼", text: "Adds to existing stock" },
+          { icon: "🧾", text: "Logged as PURCHASE" },
+        ].map(c => (
+          <div key={c.text} style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 18 }}>{c.icon}</span>
+            <span style={{ fontSize: 12, color: "#94a3b8" }}>{c.text}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* template download */}
+      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "16px 18px", marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", marginBottom: 4 }}>📋 Download Sample Template</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {["SKU", "Name", "Quantity"].map(c => (
+              <span key={c} style={{ fontFamily: "monospace", fontSize: 10, background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.28)", color: "#00d4ff", padding: "2px 7px", borderRadius: 4 }}>{c}</span>
+            ))}
+          </div>
+        </div>
+        <button onClick={downloadTemplate} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(0,212,255,0.3)", background: "rgba(0,212,255,0.1)", color: "#00d4ff", fontFamily: "Outfit, sans-serif", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+          ⬇ Download
+        </button>
+      </div>
+
+      {/* drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files?.[0] || null); }}
+        onClick={() => inputRef.current?.click()}
+        style={{
+          border: `2px dashed ${dragging ? "#00d4ff" : file ? "rgba(52,211,153,0.5)" : "rgba(255,255,255,0.1)"}`,
+          borderRadius: 16, padding: "40px 24px", textAlign: "center", cursor: "pointer",
+          background: dragging ? "rgba(0,212,255,0.06)" : file ? "rgba(52,211,153,0.06)" : "rgba(255,255,255,0.02)",
+          transition: "all 0.2s", marginBottom: 16,
+        }}
+      >
+        <input ref={inputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={e => handleFile(e.target.files?.[0] || null)} />
+        <div style={{ fontSize: 36, marginBottom: 10 }}>{file ? "✅" : "📁"}</div>
+        {file ? (
+          <>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#34d399", marginBottom: 4 }}>{file.name}</div>
+            <div style={{ fontSize: 11, color: "#64748b" }}>{(file.size / 1024).toFixed(1)} KB · Click to change</div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0", marginBottom: 4 }}>{dragging ? "Drop it!" : "Drop Excel file here"}</div>
+            <div style={{ fontSize: 12, color: "#64748b" }}>or click to browse · .xlsx / .xls</div>
+          </>
+        )}
+      </div>
+
+      {/* upload button */}
+      <button onClick={upload} disabled={!file || uploading} style={{
+        width: "100%", padding: 14, borderRadius: 13, border: "none",
+        background: "linear-gradient(135deg,#059669,#34d399)", color: "#fff",
+        fontFamily: "Outfit, sans-serif", fontSize: 14, fontWeight: 800,
+        cursor: file && !uploading ? "pointer" : "not-allowed",
+        opacity: !file || uploading ? 0.4 : 1, marginBottom: 24,
+      }}>
+        {uploading ? "⟳ Processing…" : "⬆ Upload & Update Stock"}
+      </button>
+
+      {/* results */}
+      {result && (
+        <div>
+          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+            <div style={{ flex: 1, background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: 14, padding: 16, textAlign: "center" }}>
+              <div style={{ fontFamily: "monospace", fontSize: 36, fontWeight: 700, color: "#34d399" }}>{result.processed}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontWeight: 600, textTransform: "uppercase" as const }}>✓ Updated</div>
+            </div>
+            <div style={{ flex: 1, background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 14, padding: 16, textAlign: "center" }}>
+              <div style={{ fontFamily: "monospace", fontSize: 36, fontWeight: 700, color: "#f87171" }}>{result.failed}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontWeight: 600, textTransform: "uppercase" as const }}>✕ Failed</div>
+            </div>
+          </div>
+
+          {result.errors?.length > 0 && (
+            <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ padding: "10px 16px", background: "rgba(248,113,113,0.1)", fontSize: 12, fontWeight: 700, color: "#f87171" }}>⚠ Failed Rows</div>
+              {result.errors.map((e: any, i: number) => (
+                <div key={i} style={{ padding: "9px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", gap: 12 }}>
+                  <span style={{ fontFamily: "monospace", fontSize: 10, color: "#64748b", minWidth: 70 }}>{e.row?.SKU || `Row ${i + 1}`}</span>
+                  <div>
+                    <div style={{ fontSize: 12, color: "#e2e8f0" }}>{e.row?.Name || "—"}</div>
+                    <div style={{ fontSize: 11, color: "#f87171", marginTop: 2 }}>{e.error}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {result.processed > 0 && result.failed === 0 && (
+            <div style={{ textAlign: "center", padding: 12, fontSize: 13, color: "#34d399" }}>🎉 All rows processed successfully!</div>
+          )}
+        </div>
+      )}
+
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          padding: "11px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 99999,
+          display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap", boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
+          ...(toast.type === "success"
+            ? { background: "rgba(6,55,40,0.95)", border: "1px solid rgba(52,211,153,0.4)", color: "#34d399" }
+            : toast.type === "error"
+            ? { background: "rgba(60,10,10,0.95)", border: "1px solid rgba(248,113,113,0.4)", color: "#f87171" }
+            : { background: "rgba(7,18,38,0.95)", border: "1px solid rgba(0,212,255,0.3)", color: "#00d4ff" }),
+        }}>
           {toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ"} {toast.msg}
         </div>
       )}
