@@ -81,7 +81,7 @@ export default function ManagerPage() {
   const lowCount = products.filter(p => getStockState(p).isLow).length;
 
   if (loading) return (
-    <div style={S.loadWrap}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#06090f" }}>
       <div style={{ fontSize: 32, marginBottom: 12 }}>🧊</div>
       <div style={{ color: "#64748b", fontSize: 14 }}>Loading…</div>
     </div>
