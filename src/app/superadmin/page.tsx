@@ -57,6 +57,7 @@ export default function SuperAdminPage() {
     const res = await fetch("/api/reports/stock-summary");
     if (res.ok) {
       const d = await res.json();
+      // stock-summary now returns selling_price
       setProducts(d.products ?? []);
     }
   }, []);
@@ -447,7 +448,7 @@ export default function SuperAdminPage() {
                         {isEditing
                           ? <input type="number" value={editVals.selling_price} onChange={e => setEditVals(v => ({ ...v, selling_price: e.target.value }))}
                               style={{ width: "100%", padding: "6px 10px", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.3)", borderRadius: 7, color: "#00d4ff", fontFamily: "DM Mono,monospace", fontSize: 13, outline: "none" }} />
-                          : <div style={{ fontFamily: "DM Mono,monospace", fontSize: 13, color: "#00d4ff", fontWeight: 600 }}>₹{Number(p.current_price ?? p.price ?? 0).toFixed(2)}</div>
+                          : <div style={{ fontFamily: "DM Mono,monospace", fontSize: 13, color: "#00d4ff", fontWeight: 600 }}>₹{Number(p.selling_price ?? 0).toFixed(2)}</div>
                         }
                       </div>
 
@@ -485,7 +486,7 @@ export default function SuperAdminPage() {
                           <button
                             onClick={() => {
                               setEditingId(p.id);
-                              setEditVals({ name: p.name, selling_price: String(p.current_price ?? p.price ?? 0), reorder_level: String(p.reorder_level || 0) });
+                              setEditVals({ name: p.name, selling_price: String(p.selling_price ?? 0), reorder_level: String(p.reorder_level || 0) });
                             }}
                             style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(0,212,255,0.3)", background: "rgba(0,212,255,0.08)", color: "#00d4ff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
                           >

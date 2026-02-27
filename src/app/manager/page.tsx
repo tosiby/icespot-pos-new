@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 /* ── Types ────────────────────────────────────────────────────── */
 type Product = {
   id: string; sku: string; name: string;
+  selling_price: number;
   current_stock: number; reorder_level: number; category_name: string;
 };
 type StockSummary = {
@@ -140,8 +141,8 @@ export default function ManagerPage() {
         .filter-btn.f-ok.active{background:var(--green-dim);border-color:rgba(52,211,153,0.3);color:var(--green)}
 
         .stock-table{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
-        .st-head{display:grid;grid-template-columns:1fr 80px 90px 100px 70px 90px;gap:8px;padding:11px 16px;background:rgba(255,255,255,0.03);font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border)}
-        .st-row{display:grid;grid-template-columns:1fr 80px 90px 100px 70px 90px;gap:8px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.04);align-items:center;transition:background 0.1s}
+        .st-head{display:grid;grid-template-columns:1fr 80px 80px 90px 100px 70px 90px;gap:8px;padding:11px 16px;background:rgba(255,255,255,0.03);font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border)}
+        .st-row{display:grid;grid-template-columns:1fr 80px 80px 90px 100px 70px 90px;gap:8px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.04);align-items:center;transition:background 0.1s}
         .st-row:hover{background:rgba(255,255,255,0.02)}
         .st-row:last-child{border-bottom:none}
         .prod-name{font-size:13px;font-weight:600;color:var(--text)}
@@ -268,6 +269,7 @@ export default function ManagerPage() {
                   <div className="st-head">
                     <div>Product</div>
                     <div>Category</div>
+                    <div>Price (₹)</div>
                     <div>Stock</div>
                     <div>Stock Level</div>
                     <div>Reorder</div>
@@ -287,6 +289,7 @@ export default function ManagerPage() {
                           <div className="prod-sku">{p.sku}</div>
                         </div>
                         <div><span className="cat-tag">{p.category_name}</span></div>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 13, fontWeight: 600, color: "#00d4ff" }}>₹{Number(p.selling_price ?? 0).toFixed(2)}</div>
                         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 14, fontWeight: 700, color: barColor }}>
                           {p.current_stock}
                         </div>
