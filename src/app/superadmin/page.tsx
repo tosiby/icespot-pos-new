@@ -22,7 +22,7 @@ type Stats = {
   topItems: { name: string; qty: number }[];
 };
 
-type Tab = "dashboard" | "users" | "stock";
+type Tab = "dashboard" | "users" | "stock" | "products";
 
 /* ══════════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -33,6 +33,7 @@ export default function SuperAdminPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" | "info" } | null>(null);
+
 
   // modals
   const [showCreate, setShowCreate] = useState(false);
@@ -52,6 +53,14 @@ export default function SuperAdminPage() {
     if (res.ok) setStats(await res.json());
   }, []);
 
+  const loadProducts = useCallback(async () => {
+    const res = await fetch("/api/reports/stock-summary");
+    if (res.ok) {
+      const d = await res.json();
+      setProducts(d.products ?? []);
+    }
+  }, []);
+
   const loadUsers = useCallback(async () => {
     const res = await fetch("/api/superadmin/users");
     if (res.ok) setUsers(await res.json());
@@ -61,7 +70,7 @@ export default function SuperAdminPage() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([loadStats(), loadUsers()]);
+      await Promise.all([loadStats(), loadUsers(), loadProducts()]);
       setLoading(false);
     })();
   }, [loadStats, loadUsers]);
@@ -101,6 +110,27 @@ export default function SuperAdminPage() {
     showToast(`✓ Password reset for ${showReset.email}`, "success");
     setShowReset(null);
     setNewPwd("");
+  }
+
+  /* ── Save Product Edit ───────────────────────────────────────── */
+  async function saveProduct(id: string) {
+    setSavingId(id);
+    const res = await fetch("/api/products/update", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id,
+        name: editVals.name,
+        selling_price: parseFloat(editVals.selling_price),
+        reorder_level: parseInt(editVals.reorder_level) || 0,
+      }),
+    });
+    const data = await res.json();
+    setSavingId(null);
+    if (!res.ok) { showToast(data.error || "Save failed", "error"); return; }
+    showToast("✓ Product updated", "success");
+    setEditingId(null);
+    await loadProducts();
   }
 
   /* ── Toggle Active ───────────────────────────────────────────── */
@@ -153,6 +183,7 @@ export default function SuperAdminPage() {
             { id: "dashboard", icon: "📊", label: "Dashboard" },
             { id: "users",     icon: "👥", label: "Users & Roles" },
             { id: "stock",     icon: "📦", label: "Stock Upload" },
+            { id: "products",  icon: "🏷️", label: "Products" },
           ] as { id: Tab; icon: string; label: string }[]).map(item => (
             <button
               key={item.id}
@@ -347,6 +378,128 @@ export default function SuperAdminPage() {
         {tab === "stock" && (
           <StockUploadTab />
         )}
+
+        {/* ━━━━━━━━━━━━━━━━━ PRODUCTS TAB ━━━━━━━━━━━━━━━━━━━━ */}
+        {tab === "products" && (
+          <div style={S.content}>
+            <div style={S.pageHeader}>
+              <div>
+                <h1 style={S.pageTitle}>🏷️ Products Management</h1>
+                <p style={S.pageSub}>{products.length} products · Click any row to edit name, price or reorder level</p>
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <input
+                  value={prodSearch}
+                  onChange={e => setProdSearch(e.target.value)}
+                  placeholder="Search name or SKU…"
+                  style={{ padding: "8px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 9, color: "#e2e8f0", fontFamily: "Outfit,sans-serif", fontSize: 13, outline: "none", width: 220 }}
+                />
+                <button onClick={loadProducts} style={{ padding: "8px 14px", borderRadius: 9, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "#94a3b8", fontFamily: "Outfit,sans-serif", fontSize: 12, cursor: "pointer" }}>
+                  ↻ Refresh
+                </button>
+              </div>
+            </div>
+
+            <div style={S.table}>
+              {/* header */}
+              <div style={{ ...S.tableHead, gridTemplateColumns: "2fr 90px 1fr 90px 80px 80px 120px" } as React.CSSProperties}>
+                <div>Product Name</div>
+                <div>SKU</div>
+                <div>Category</div>
+                <div>Price (₹)</div>
+                <div>Stock</div>
+                <div>Reorder</div>
+                <div style={{ textAlign: "right" as const }}>Actions</div>
+              </div>
+
+              {products
+                .filter(p => !prodSearch || p.name?.toLowerCase().includes(prodSearch.toLowerCase()) || p.sku?.toLowerCase().includes(prodSearch.toLowerCase()))
+                .map(p => {
+                  const isEditing = editingId === p.id;
+                  const stockColor = p.current_stock <= 0 ? "#f87171" : p.reorder_level > 0 && p.current_stock <= p.reorder_level ? "#fbbf24" : "#34d399";
+                  return (
+                    <div key={p.id} style={{
+                      display: "grid", gridTemplateColumns: "2fr 90px 1fr 90px 80px 80px 120px",
+                      gap: 8, padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                      alignItems: "center",
+                      background: isEditing ? "rgba(0,212,255,0.04)" : "transparent",
+                      borderLeft: isEditing ? "2px solid rgba(0,212,255,0.4)" : "2px solid transparent",
+                    }}>
+                      {/* Name */}
+                      <div>
+                        {isEditing
+                          ? <input value={editVals.name} onChange={e => setEditVals(v => ({ ...v, name: e.target.value }))}
+                              style={{ width: "100%", padding: "6px 10px", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.3)", borderRadius: 7, color: "#e2e8f0", fontFamily: "Outfit,sans-serif", fontSize: 13, outline: "none" }} />
+                          : <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{p.name}</div>
+                        }
+                      </div>
+
+                      {/* SKU */}
+                      <div style={{ fontFamily: "monospace", fontSize: 10, color: "#64748b" }}>{p.sku}</div>
+
+                      {/* Category */}
+                      <div style={{ fontSize: 11, color: "#64748b", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 4, padding: "2px 6px", display: "inline-block" }}>
+                        {p.category_name}
+                      </div>
+
+                      {/* Price */}
+                      <div>
+                        {isEditing
+                          ? <input type="number" value={editVals.selling_price} onChange={e => setEditVals(v => ({ ...v, selling_price: e.target.value }))}
+                              style={{ width: "100%", padding: "6px 10px", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.3)", borderRadius: 7, color: "#00d4ff", fontFamily: "DM Mono,monospace", fontSize: 13, outline: "none" }} />
+                          : <div style={{ fontFamily: "DM Mono,monospace", fontSize: 13, color: "#00d4ff", fontWeight: 600 }}>₹{Number(p.current_price ?? p.price ?? 0).toFixed(2)}</div>
+                        }
+                      </div>
+
+                      {/* Stock */}
+                      <div style={{ fontFamily: "DM Mono,monospace", fontSize: 13, fontWeight: 700, color: stockColor }}>{p.current_stock}</div>
+
+                      {/* Reorder */}
+                      <div>
+                        {isEditing
+                          ? <input type="number" value={editVals.reorder_level} onChange={e => setEditVals(v => ({ ...v, reorder_level: e.target.value }))}
+                              style={{ width: "100%", padding: "6px 10px", background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.3)", borderRadius: 7, color: "#e2e8f0", fontFamily: "DM Mono,monospace", fontSize: 13, outline: "none" }} />
+                          : <div style={{ fontFamily: "DM Mono,monospace", fontSize: 12, color: "#64748b" }}>{p.reorder_level || "—"}</div>
+                        }
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: "flex", gap: 5, justifyContent: "flex-end" }}>
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() => saveProduct(p.id)}
+                              disabled={savingId === p.id}
+                              style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: "linear-gradient(135deg,#059669,#34d399)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", opacity: savingId === p.id ? 0.6 : 1 }}
+                            >
+                              {savingId === p.id ? "…" : "✓ Save"}
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              style={{ padding: "5px 10px", borderRadius: 7, border: "1px solid rgba(255,255,255,0.1)", background: "none", color: "#64748b", fontSize: 11, cursor: "pointer" }}
+                            >
+                              ✕
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingId(p.id);
+                              setEditVals({ name: p.name, selling_price: String(p.current_price ?? p.price ?? 0), reorder_level: String(p.reorder_level || 0) });
+                            }}
+                            style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(0,212,255,0.3)", background: "rgba(0,212,255,0.08)", color: "#00d4ff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+                          >
+                            ✏️ Edit
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
       </main>
 
       {/* ── CREATE USER MODAL ─────────────────────────────────── */}
@@ -457,6 +610,13 @@ function StockUploadTab() {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" | "info" } | null>(null);
+
+  // Products tab state
+  const [products, setProducts] = useState<any[]>([]);
+  const [prodSearch, setProdSearch] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editVals, setEditVals] = useState<{ name: string; selling_price: string; reorder_level: string }>({ name: "", selling_price: "", reorder_level: "" });
+  const [savingId, setSavingId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function showToast(msg: string, type: "success" | "error" | "info" = "info") {
