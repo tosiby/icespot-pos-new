@@ -376,6 +376,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
   const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "shifts">("overview");
+  const [me, setMe] = useState<{ role: string; email: string; name: string } | null>(null);
 
   useEffect(() => {
     init();
@@ -388,6 +389,12 @@ const init = useCallback(async () => {
 
   try {
     await Promise.all([
+      // ME (for role-based nav)
+      fetch("/api/auth/me").then(async (r) => {
+        if (!r.ok) return;
+        const d = await r.json();
+        setMe(d);
+      }),
       // Z REPORT
       fetch("/api/reports/z").then(async (r) => {
         if (!r.ok) return;
@@ -687,9 +694,26 @@ const init = useCallback(async () => {
                 &nbsp;·&nbsp;
                 {now.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
               </div>
+              {me?.name && (
+                <div className="time-chip">👤 {me.name}</div>
+              )}
               <button className="icon-btn" onClick={init}>↻ Refresh</button>
               <a href="/billing" className="nav-btn nav-btn-primary">⚡ Billing</a>
               <a href="/shift-history" className="nav-btn">📁 History</a>
+              {(me?.role === "SUPERADMIN" || me?.role === "ADMIN") && (
+                <a href="/superadmin" className="nav-btn" style={{ borderColor: "rgba(168,85,247,0.4)", color: "#c084fc" }}>
+                  🛡️ Super Admin
+                </a>
+              )}
+              <button
+                className="nav-btn"
+                onClick={async () => {
+                  await fetch("/api/auth/logout", { method: "POST" });
+                  window.location.href = "/login";
+                }}
+              >
+                🚪 Logout
+              </button>
             </div>
           </div>
 

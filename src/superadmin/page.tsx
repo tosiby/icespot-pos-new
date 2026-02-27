@@ -1,6 +1,6 @@
 "use client";
 export const dynamic = "force-dynamic";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 /* ══════════════════════════════════════════════════════════════════
    TYPES
@@ -22,7 +22,7 @@ type Stats = {
   topItems: { name: string; qty: number }[];
 };
 
-type Tab = "dashboard" | "users" | "stock";
+type Tab = "dashboard" | "users";
 
 /* ══════════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -152,7 +152,6 @@ export default function SuperAdminPage() {
           {([
             { id: "dashboard", icon: "📊", label: "Dashboard" },
             { id: "users",     icon: "👥", label: "Users & Roles" },
-            { id: "stock",     icon: "📦", label: "Stock Upload" },
           ] as { id: Tab; icon: string; label: string }[]).map(item => (
             <button
               key={item.id}
@@ -332,11 +331,6 @@ export default function SuperAdminPage() {
             </div>
           </div>
         )}
-
-        {/* ━━━━━━━━━━━━━━━━━ STOCK UPLOAD TAB ━━━━━━━━━━━━━━━━━ */}
-        {tab === "stock" && (
-          <StockUploadTab />
-        )}
       </main>
 
       {/* ── CREATE USER MODAL ─────────────────────────────────── */}
@@ -430,178 +424,6 @@ export default function SuperAdminPage() {
       {/* ── TOAST ─────────────────────────────────────────────── */}
       {toast && (
         <div style={{ ...S.toast, ...(toast.type === "success" ? S.toastSuccess : toast.type === "error" ? S.toastError : S.toastInfo) }}>
-          {toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ"} {toast.msg}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-/* ══════════════════════════════════════════════════════════════════
-   STOCK UPLOAD COMPONENT (embedded in superadmin)
-══════════════════════════════════════════════════════════════════ */
-function StockUploadTab() {
-  const [file, setFile] = useState<File | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" | "info" } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  function showToast(msg: string, type: "success" | "error" | "info" = "info") {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  }
-
-  function handleFile(f: File | null) {
-    if (!f) return;
-    if (!f.name.match(/\.(xlsx|xls)$/i)) { showToast("Only .xlsx or .xls files supported", "error"); return; }
-    setFile(f); setResult(null);
-  }
-
-  async function upload() {
-    if (!file) { showToast("Select a file first", "error"); return; }
-    setUploading(true); setResult(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/purchase/upload", { method: "POST", body: form });
-      const json = await res.json();
-      setResult(json);
-      if (json.processed > 0) showToast(`✓ ${json.processed} products updated`, "success");
-      else showToast("No products were updated", "error");
-    } catch { showToast("Upload failed — network error", "error"); }
-    finally { setUploading(false); }
-  }
-
-  function downloadTemplate() {
-    const csv = "SKU,Name,Quantity\nICE001,Vanilla Scoop,50\nICE002,Chocolate Scoop,30\n";
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "stock_template.csv"; a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <div style={{ padding: "32px 32px", maxWidth: 680 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 4 }}>📦 Stock Upload via Excel</h1>
-      <p style={{ fontSize: 12, color: "#64748b", marginBottom: 28 }}>Bulk update product quantities by uploading an Excel file</p>
-
-      {/* info chips */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
-        {[
-          { icon: "🔎", text: "Matches by SKU → Name" },
-          { icon: "🔼", text: "Adds to existing stock" },
-          { icon: "🧾", text: "Logged as PURCHASE" },
-        ].map(c => (
-          <div key={c.text} style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 18 }}>{c.icon}</span>
-            <span style={{ fontSize: 12, color: "#94a3b8" }}>{c.text}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* template download */}
-      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "16px 18px", marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", marginBottom: 4 }}>📋 Download Sample Template</div>
-          <div style={{ display: "flex", gap: 6 }}>
-            {["SKU", "Name", "Quantity"].map(c => (
-              <span key={c} style={{ fontFamily: "monospace", fontSize: 10, background: "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.28)", color: "#00d4ff", padding: "2px 7px", borderRadius: 4 }}>{c}</span>
-            ))}
-          </div>
-        </div>
-        <button onClick={downloadTemplate} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(0,212,255,0.3)", background: "rgba(0,212,255,0.1)", color: "#00d4ff", fontFamily: "Outfit, sans-serif", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-          ⬇ Download
-        </button>
-      </div>
-
-      {/* drop zone */}
-      <div
-        onDragOver={e => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={e => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files?.[0] || null); }}
-        onClick={() => inputRef.current?.click()}
-        style={{
-          border: `2px dashed ${dragging ? "#00d4ff" : file ? "rgba(52,211,153,0.5)" : "rgba(255,255,255,0.1)"}`,
-          borderRadius: 16, padding: "40px 24px", textAlign: "center", cursor: "pointer",
-          background: dragging ? "rgba(0,212,255,0.06)" : file ? "rgba(52,211,153,0.06)" : "rgba(255,255,255,0.02)",
-          transition: "all 0.2s", marginBottom: 16,
-        }}
-      >
-        <input ref={inputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={e => handleFile(e.target.files?.[0] || null)} />
-        <div style={{ fontSize: 36, marginBottom: 10 }}>{file ? "✅" : "📁"}</div>
-        {file ? (
-          <>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#34d399", marginBottom: 4 }}>{file.name}</div>
-            <div style={{ fontSize: 11, color: "#64748b" }}>{(file.size / 1024).toFixed(1)} KB · Click to change</div>
-          </>
-        ) : (
-          <>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0", marginBottom: 4 }}>{dragging ? "Drop it!" : "Drop Excel file here"}</div>
-            <div style={{ fontSize: 12, color: "#64748b" }}>or click to browse · .xlsx / .xls</div>
-          </>
-        )}
-      </div>
-
-      {/* upload button */}
-      <button onClick={upload} disabled={!file || uploading} style={{
-        width: "100%", padding: 14, borderRadius: 13, border: "none",
-        background: "linear-gradient(135deg,#059669,#34d399)", color: "#fff",
-        fontFamily: "Outfit, sans-serif", fontSize: 14, fontWeight: 800,
-        cursor: file && !uploading ? "pointer" : "not-allowed",
-        opacity: !file || uploading ? 0.4 : 1, marginBottom: 24,
-      }}>
-        {uploading ? "⟳ Processing…" : "⬆ Upload & Update Stock"}
-      </button>
-
-      {/* results */}
-      {result && (
-        <div>
-          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-            <div style={{ flex: 1, background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", borderRadius: 14, padding: 16, textAlign: "center" }}>
-              <div style={{ fontFamily: "monospace", fontSize: 36, fontWeight: 700, color: "#34d399" }}>{result.processed}</div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontWeight: 600, textTransform: "uppercase" as const }}>✓ Updated</div>
-            </div>
-            <div style={{ flex: 1, background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 14, padding: 16, textAlign: "center" }}>
-              <div style={{ fontFamily: "monospace", fontSize: 36, fontWeight: 700, color: "#f87171" }}>{result.failed}</div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4, fontWeight: 600, textTransform: "uppercase" as const }}>✕ Failed</div>
-            </div>
-          </div>
-
-          {result.errors?.length > 0 && (
-            <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: 12, overflow: "hidden" }}>
-              <div style={{ padding: "10px 16px", background: "rgba(248,113,113,0.1)", fontSize: 12, fontWeight: 700, color: "#f87171" }}>⚠ Failed Rows</div>
-              {result.errors.map((e: any, i: number) => (
-                <div key={i} style={{ padding: "9px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", gap: 12 }}>
-                  <span style={{ fontFamily: "monospace", fontSize: 10, color: "#64748b", minWidth: 70 }}>{e.row?.SKU || `Row ${i + 1}`}</span>
-                  <div>
-                    <div style={{ fontSize: 12, color: "#e2e8f0" }}>{e.row?.Name || "—"}</div>
-                    <div style={{ fontSize: 11, color: "#f87171", marginTop: 2 }}>{e.error}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {result.processed > 0 && result.failed === 0 && (
-            <div style={{ textAlign: "center", padding: 12, fontSize: 13, color: "#34d399" }}>🎉 All rows processed successfully!</div>
-          )}
-        </div>
-      )}
-
-      {toast && (
-        <div style={{
-          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
-          padding: "11px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 99999,
-          display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap", boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
-          ...(toast.type === "success"
-            ? { background: "rgba(6,55,40,0.95)", border: "1px solid rgba(52,211,153,0.4)", color: "#34d399" }
-            : toast.type === "error"
-            ? { background: "rgba(60,10,10,0.95)", border: "1px solid rgba(248,113,113,0.4)", color: "#f87171" }
-            : { background: "rgba(7,18,38,0.95)", border: "1px solid rgba(0,212,255,0.3)", color: "#00d4ff" }),
-        }}>
           {toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ"} {toast.msg}
         </div>
       )}
