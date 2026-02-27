@@ -166,7 +166,17 @@ export default function SuperAdminPage() {
         </nav>
 
         <div style={S.sideFooter}>
-          <a href="/dashboard" style={S.backLink}>← Back to Dashboard</a>
+          <a href="/dashboard" style={S.backLink}>📊 Dashboard</a>
+          <a href="/billing" style={{ ...S.backLink, display: "block", marginTop: 8 }}>⚡ Billing</a>
+          <button
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" });
+              window.location.href = "/login";
+            }}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: 12, display: "block", fontSize: 11, color: "#f87171", fontFamily: "Outfit, sans-serif" }}
+          >
+            🚪 Logout
+          </button>
         </div>
       </aside>
 
