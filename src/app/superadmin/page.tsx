@@ -44,7 +44,11 @@ export default function SuperAdminPage() {
   const [resetting, setResetting] = useState(false);
 
   // Products tab state
-
+  const [products, setProducts] = useState<any[]>([]);
+  const [prodSearch, setProdSearch] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editVals, setEditVals] = useState<{ name: string; selling_price: string; reorder_level: string }>({ name: "", selling_price: "", reorder_level: "" });
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string, type: "success" | "error" | "info" = "info") => {
     setToast({ msg, type });
